@@ -55,7 +55,7 @@
   }
   .setup code{background:var(--paper-soft);padding:1px 6px;border-radius:4px;font-size:13px;}
 
-  .identity{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);margin-bottom:18px;}
+  .identity{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);margin-bottom:14px;flex-wrap:wrap;}
   .identity b{color:var(--ink);font-weight:500;}
   .identity button{
     border:none;background:none;color:var(--gold);font-size:13px;cursor:pointer;
@@ -64,6 +64,23 @@
   .conn{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);margin-left:auto;}
   .conn .dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
   .conn.offline .dot{background:var(--red);}
+
+  .people-panel{
+    background:var(--paper-soft);border:1px solid var(--sand);border-radius:var(--radius);
+    padding:12px 14px;margin-bottom:18px;
+  }
+  .people-panel h2{font-family:'Fraunces',serif;font-size:15px;font-weight:500;margin:0 0 8px;}
+  .people-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:6px 0;border-bottom:1px solid var(--sand);font-size:13px;
+  }
+  .people-row:last-child{border-bottom:none;}
+  .remove-btn{
+    border:1px solid var(--sand);background:none;color:var(--red);font-size:12px;
+    padding:4px 10px;border-radius:14px;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .remove-btn:hover{background:var(--red-soft);}
+  .people-panel-hint{font-size:11px;color:var(--ink-soft);margin-top:8px;}
 
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
   .month-label{font-family:'Fraunces',serif;font-weight:600;font-size:32px;letter-spacing:0.2px;}
@@ -120,6 +137,7 @@
   <div id="configView" class="setup" style="display:none;">
     <h1>One-time setup needed</h1>
     <p>This page needs your Firebase project's config values before it can save anything. Open this file in a text editor, find the <code>firebaseConfig</code> object near the top of the script, and replace the placeholder strings with the values from your Firebase project (Project settings → General → Your apps → SDK setup and configuration).</p>
+    <p>Also set the <code>ADMIN_PASSCODE</code> constant just above it to something private — that's what lets you remove other people from the roster.</p>
     <p>Once that's filled in and saved, reload this page.</p>
   </div>
 
@@ -134,8 +152,15 @@
   <div id="calendarView" style="display:none;">
     <div class="identity">
       You're scheduling as <b id="meLabel"></b>
-      <button id="changeNameBtn">change</button>
+      <button id="changeNameBtn">change name</button>
+      <button id="managePeopleBtn">manage people</button>
       <span class="conn" id="connStatus"><span class="dot"></span><span id="connText">connected</span></span>
+    </div>
+
+    <div class="people-panel" id="peoplePanel" style="display:none;">
+      <h2>People on this calendar</h2>
+      <div id="peopleList"></div>
+      <p class="people-panel-hint">You can always remove yourself. Removing someone else asks for the admin passcode.</p>
     </div>
 
     <div class="topbar">
@@ -174,8 +199,10 @@ const firebaseConfig = {
   projectId: "speeds-9e51c",
   storageBucket: "speeds-9e51c.firebasestorage.app",
   messagingSenderId: "475382285855",
-  appId: "1:475382285855:web:795b1c1570012e6c10372a",
+  appId: "1:475382285855:web:795b1c1570012e6c10372a"
 };
+
+const ADMIN_PASSCODE = "S3dgingMys3Lf@69";
 
 const monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let view={year:2026,month:5};
@@ -183,25 +210,39 @@ let monthData={};
 let monthRef=null;
 let peopleRef=null;
 let people={};
+let myId="";
 let myName="";
-let mySafeKey="";
+let db;
 
 function pad(n){return n<10?"0"+n:""+n;}
 function monthPath(y,m){return y+"-"+pad(m+1);}
-function safeKey(name){
-  return name.trim().toLowerCase().replace(/[.#$\[\]\/\s]+/g,"_").slice(0,40)||"guest";
-}
 function initials(name){
   const parts=name.trim().split(/\s+/);
   if(parts.length===1) return parts[0].slice(0,2).toUpperCase();
   return (parts[0][0]+parts[1][0]).toUpperCase();
 }
-
 function isConfigured(){
   return !firebaseConfig.apiKey.startsWith("PASTE_");
 }
-
 function isWeekend(dow){return dow===0||dow===6;}
+function genId(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "id-"+Math.random().toString(36).slice(2)+Date.now().toString(36);
+}
+function isAdmin(){
+  return sessionStorage.getItem("isAdmin")==="true";
+}
+function requestAdmin(){
+  if(isAdmin()) return true;
+  const entered=prompt("Enter the admin passcode to manage other people:");
+  if(entered===null) return false;
+  if(entered===ADMIN_PASSCODE){
+    sessionStorage.setItem("isAdmin","true");
+    return true;
+  }
+  alert("Incorrect passcode.");
+  return false;
+}
 
 function buildChipRow(statusMap,path){
   const row=document.createElement("div");
@@ -210,7 +251,7 @@ function buildChipRow(statusMap,path){
     const name=people[key];
     const isOn=!!(statusMap&&statusMap[key]);
     const chip=document.createElement("button");
-    const mine=key===mySafeKey;
+    const mine=key===myId;
     chip.className="chip "+(isOn?"on":"off")+" "+(mine?"mine":"theirs");
     chip.textContent=initials(name);
     chip.title=name+(isOn?" — available":" — not available")+(mine?" (you)":"");
@@ -293,7 +334,40 @@ function goTo(y,m){
   attachMonthListener(y,m);
 }
 
-let db;
+function renderPeoplePanel(){
+  const list=document.getElementById("peopleList");
+  list.innerHTML="";
+  Object.keys(people).forEach(key=>{
+    const name=people[key];
+    const row=document.createElement("div");
+    row.className="people-row";
+
+    const label=document.createElement("span");
+    label.textContent=name+(key===myId?" (you)":"");
+    row.appendChild(label);
+
+    const removeBtn=document.createElement("button");
+    removeBtn.className="remove-btn";
+    removeBtn.textContent="Remove";
+    removeBtn.onclick=()=>{
+      if(key===myId){
+        if(confirm("Remove yourself from the roster? You'll need to re-enter your name to rejoin.")){
+          db.ref("people/"+key).remove();
+          localStorage.removeItem("scheduleId");
+          location.reload();
+        }
+      }else{
+        if(requestAdmin()){
+          if(confirm("Remove "+name+" from the roster?")){
+            db.ref("people/"+key).remove();
+          }
+        }
+      }
+    };
+    row.appendChild(removeBtn);
+    list.appendChild(row);
+  });
+}
 
 function wireNav(){
   document.getElementById("prevBtn").onclick=()=>goTo(view.year,view.month-1);
@@ -303,17 +377,27 @@ function wireNav(){
     goTo(now.getFullYear(),now.getMonth());
   };
   document.getElementById("changeNameBtn").onclick=()=>{
-    document.getElementById("calendarView").style.display="none";
-    document.getElementById("setupView").style.display="block";
-    document.getElementById("nameInput").value=myName;
+    const newName=prompt("Enter your new name:",myName);
+    if(newName && newName.trim()){
+      myName=newName.trim();
+      db.ref("people/"+myId).set(myName);
+    }
+  };
+  document.getElementById("managePeopleBtn").onclick=()=>{
+    const panel=document.getElementById("peoplePanel");
+    const showing=panel.style.display==="block";
+    if(showing){
+      panel.style.display="none";
+    }else{
+      renderPeoplePanel();
+      panel.style.display="block";
+    }
   };
 }
 
-function startApp(name){
+function startApp(id,name){
+  myId=id;
   myName=name;
-  mySafeKey=safeKey(name);
-  localStorage.setItem("scheduleName",name);
-  db.ref("people/"+mySafeKey).set(name);
 
   document.getElementById("setupView").style.display="none";
   document.getElementById("calendarView").style.display="block";
@@ -322,6 +406,16 @@ function startApp(name){
   peopleRef=db.ref("people");
   peopleRef.on("value",snap=>{
     people=snap.val()||{};
+    if(!people[myId]){
+      localStorage.removeItem("scheduleId");
+      location.reload();
+      return;
+    }
+    myName=people[myId];
+    document.getElementById("meLabel").textContent=myName;
+    if(document.getElementById("peoplePanel").style.display==="block"){
+      renderPeoplePanel();
+    }
     render();
   });
 
@@ -347,15 +441,27 @@ function init(){
   document.getElementById("nameSaveBtn").onclick=()=>{
     const val=document.getElementById("nameInput").value.trim();
     if(!val) return;
-    startApp(val);
+    const id=genId();
+    localStorage.setItem("scheduleId",id);
+    db.ref("people/"+id).set(val).then(()=>{
+      startApp(id,val);
+    });
   };
   document.getElementById("nameInput").addEventListener("keydown",(e)=>{
     if(e.key==="Enter") document.getElementById("nameSaveBtn").click();
   });
 
-  const existing=localStorage.getItem("scheduleName");
-  if(existing){
-    startApp(existing);
+  const existingId=localStorage.getItem("scheduleId");
+  if(existingId){
+    db.ref("people/"+existingId).once("value").then(snap=>{
+      const name=snap.val();
+      if(name){
+        startApp(existingId,name);
+      }else{
+        localStorage.removeItem("scheduleId");
+        document.getElementById("setupView").style.display="block";
+      }
+    });
   }else{
     document.getElementById("setupView").style.display="block";
   }
@@ -365,3 +471,4 @@ init();
 </script>
 </body>
 </html>
+"add rename and remove features"
