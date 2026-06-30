@@ -41,19 +41,24 @@
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;}
   .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 40px;}
 
-  .setup{max-width:420px;margin:60px auto;text-align:center;}
-  .setup h1{font-family:'Fraunces',serif;font-weight:600;font-size:26px;margin-bottom:6px;}
-  .setup p{font-size:14px;color:var(--ink-soft);margin-bottom:16px;line-height:1.5;text-align:left;}
-  .setup input{
+  .auth{max-width:380px;margin:60px auto;text-align:center;}
+  .auth h1{font-family:'Fraunces',serif;font-weight:600;font-size:26px;margin-bottom:6px;}
+  .auth p{font-size:14px;color:var(--ink-soft);margin-bottom:16px;line-height:1.5;}
+  .auth p.left{text-align:left;}
+  .auth input{
     width:100%;padding:11px 14px;border-radius:20px;border:1px solid var(--sand);
     background:var(--paper-soft);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;
-    text-align:center;margin-bottom:12px;
+    text-align:center;margin-bottom:10px;
   }
-  .setup button{
+  .auth button{
     padding:10px 22px;border-radius:20px;border:none;background:var(--green);
     color:var(--green-soft);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;cursor:pointer;
+    margin:4px 4px;
   }
-  .setup code{background:var(--paper-soft);padding:1px 6px;border-radius:4px;font-size:13px;}
+  .auth button.ghost{background:none;border:1px solid var(--sand);color:var(--ink-soft);}
+  .auth code{background:var(--paper-soft);padding:1px 6px;border-radius:4px;font-size:13px;}
+  .auth-error{color:var(--red);font-size:13px;min-height:18px;margin:4px 0 8px;}
+  .auth-note{color:var(--ink-soft);font-size:13px;min-height:18px;margin:4px 0 8px;}
 
   .identity{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);margin-bottom:14px;flex-wrap:wrap;}
   .identity b{color:var(--ink);font-weight:500;}
@@ -134,19 +139,65 @@
 <body>
 <div class="wrap">
 
-  <div id="configView" class="setup" style="display:none;">
+  <div id="configView" class="auth" style="display:none;">
     <h1>One-time setup needed</h1>
-    <p>This page needs your Firebase project's config values before it can save anything. Open this file in a text editor, find the <code>firebaseConfig</code> object near the top of the script, and replace the placeholder strings with the values from your Firebase project (Project settings → General → Your apps → SDK setup and configuration).</p>
-    <p>Also set the <code>ADMIN_PASSCODE</code> constant just above it to something private — that's what lets you remove other people from the roster.</p>
-    <p>Once that's filled in and saved, reload this page.</p>
+    <p class="left">This page needs your Firebase project's config values before it can save anything. Open this file in a text editor, find the <code>firebaseConfig</code> object near the top of the script, and fill in your real values.</p>
+    <p class="left">Also set <code>ADMIN_UID</code> to your own Firebase Auth user ID once you've created your account (find it in the Firebase console under Authentication → Users) — that's what gives you permission to remove other people.</p>
+    <p class="left">Reload this page once that's done.</p>
   </div>
 
-  <div id="setupView" class="setup" style="display:none;">
+  <div id="nameView" class="auth" style="display:none;">
     <h1>Who's scheduling?</h1>
-    <p style="text-align:center;">Enter your name so your toggles are kept separate from everyone else's.</p>
+    <p>Enter your name. If it's already on this calendar, we'll ask for your password instead.</p>
     <input id="nameInput" type="text" placeholder="Your name" maxlength="24">
     <br>
-    <button id="nameSaveBtn">Continue</button>
+    <button id="nameContinueBtn">Continue</button>
+  </div>
+
+  <div id="loginView" class="auth" style="display:none;">
+    <h1>Welcome back</h1>
+    <p id="loginAsText"></p>
+    <input id="loginPassword" type="password" placeholder="Password">
+    <div class="auth-error" id="loginError"></div>
+    <br>
+    <button id="loginBtn">Log in</button>
+    <button class="ghost" id="loginBackBtn">Back</button>
+  </div>
+
+  <div id="signupView" class="auth" style="display:none;">
+    <h1>Create your account</h1>
+    <p>Setting up as <b id="signupNamePreview"></b>. This needs a real email — you'll get a verification link.</p>
+    <input id="signupEmail" type="email" placeholder="Email">
+    <input id="signupPassword" type="password" placeholder="Password (6+ characters)">
+    <input id="signupPassword2" type="password" placeholder="Confirm password">
+    <div class="auth-error" id="signupError"></div>
+    <br>
+    <button id="signupBtn">Create account</button>
+    <button class="ghost" id="signupBackBtn">Back</button>
+  </div>
+
+  <div id="verifyView" class="auth" style="display:none;">
+    <h1>Verify your email</h1>
+    <p>We sent a verification link to <b id="verifyEmailText"></b>. Click it, then come back here.</p>
+    <div class="auth-note" id="verifyError"></div>
+    <button id="verifyContinueBtn">I've verified — continue</button>
+    <br>
+    <button class="ghost" id="resendBtn">Resend email</button>
+    <button class="ghost" id="verifySignOutBtn">Sign out</button>
+  </div>
+
+  <div id="rejoinView" class="auth" style="display:none;">
+    <h1>Set your display name</h1>
+    <p>You're verified, but not currently on this calendar's roster. Pick the name you want shown.</p>
+    <input id="rejoinNameInput" type="text" placeholder="Your name" maxlength="24">
+    <br>
+    <button id="rejoinBtn">Join calendar</button>
+    <button class="ghost" id="rejoinSignOutBtn">Sign out</button>
+  </div>
+
+  <div id="fullView" class="auth" style="display:none;">
+    <h1>This calendar is full</h1>
+    <p>It's capped at 8 people. Ask the organizer to remove someone before you can join.</p>
   </div>
 
   <div id="calendarView" style="display:none;">
@@ -154,13 +205,14 @@
       You're scheduling as <b id="meLabel"></b>
       <button id="changeNameBtn">change name</button>
       <button id="managePeopleBtn">manage people</button>
+      <button id="signOutBtn">sign out</button>
       <span class="conn" id="connStatus"><span class="dot"></span><span id="connText">connected</span></span>
     </div>
 
     <div class="people-panel" id="peoplePanel" style="display:none;">
-      <h2>People on this calendar</h2>
+      <h2>People on this calendar (<span id="peopleCount"></span>/8)</h2>
       <div id="peopleList"></div>
-      <p class="people-panel-hint">You can always remove yourself. Removing someone else asks for the admin passcode.</p>
+      <p class="people-panel-hint">You can always remove yourself. Only the organizer can remove someone else.</p>
     </div>
 
     <div class="topbar">
@@ -190,6 +242,7 @@
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 const firebaseConfig = {
@@ -202,7 +255,8 @@ const firebaseConfig = {
   appId: "1:475382285855:web:795b1c1570012e6c10372a"
 };
 
-const ADMIN_PASSCODE = "S3dgingMys3Lf@69";
+const ADMIN_UID = "PASTE_YOUR_ADMIN_UID";
+const MAX_PEOPLE = 8;
 
 const monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let view={year:2026,month:5};
@@ -212,7 +266,9 @@ let peopleRef=null;
 let people={};
 let myId="";
 let myName="";
-let db;
+let pendingName="";
+let pendingEmail="";
+let auth,db;
 
 function pad(n){return n<10?"0"+n:""+n;}
 function monthPath(y,m){return y+"-"+pad(m+1);}
@@ -225,30 +281,38 @@ function isConfigured(){
   return !firebaseConfig.apiKey.startsWith("PASTE_");
 }
 function isWeekend(dow){return dow===0||dow===6;}
-function genId(){
-  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
-  return "id-"+Math.random().toString(36).slice(2)+Date.now().toString(36);
-}
 function isAdmin(){
-  return sessionStorage.getItem("isAdmin")==="true";
+  return !!(auth.currentUser && auth.currentUser.uid===ADMIN_UID);
 }
-function requestAdmin(){
-  if(isAdmin()) return true;
-  const entered=prompt("Enter the admin passcode to manage other people:");
-  if(entered===null) return false;
-  if(entered===ADMIN_PASSCODE){
-    sessionStorage.setItem("isAdmin","true");
-    return true;
+
+function showView(id){
+  ["configView","nameView","loginView","signupView","verifyView","rejoinView","fullView","calendarView"].forEach(v=>{
+    document.getElementById(v).style.display = (v===id)?"block":"none";
+  });
+}
+
+async function getPeopleCount(){
+  const snap=await db.ref("people").once("value");
+  return Object.keys(snap.val()||{}).length;
+}
+
+async function findPersonByName(name){
+  const snap=await db.ref("people").once("value");
+  const all=snap.val()||{};
+  const target=name.trim().toLowerCase();
+  for(const uid in all){
+    if(all[uid] && all[uid].name && all[uid].name.trim().toLowerCase()===target){
+      return all[uid];
+    }
   }
-  alert("Incorrect passcode.");
-  return false;
+  return null;
 }
 
 function buildChipRow(statusMap,path){
   const row=document.createElement("div");
   row.className="chips";
   Object.keys(people).forEach(key=>{
-    const name=people[key];
+    const name=people[key].name;
     const isOn=!!(statusMap&&statusMap[key]);
     const chip=document.createElement("button");
     const mine=key===myId;
@@ -290,6 +354,10 @@ function buildCell(dayNum,dow){
     cell.appendChild(pmLabel);
     cell.appendChild(buildChipRow(entry.pm,base+"/pm"));
   }else{
+    const label=document.createElement("div");
+    label.className="slot-label";
+    label.textContent="8pm";
+    cell.appendChild(label);
     cell.appendChild(buildChipRow(entry.weekday,base+"/weekday"));
   }
 
@@ -335,10 +403,11 @@ function goTo(y,m){
 }
 
 function renderPeoplePanel(){
+  document.getElementById("peopleCount").textContent=Object.keys(people).length;
   const list=document.getElementById("peopleList");
   list.innerHTML="";
   Object.keys(people).forEach(key=>{
-    const name=people[key];
+    const name=people[key].name;
     const row=document.createElement("div");
     row.className="people-row";
 
@@ -346,30 +415,31 @@ function renderPeoplePanel(){
     label.textContent=name+(key===myId?" (you)":"");
     row.appendChild(label);
 
-    const removeBtn=document.createElement("button");
-    removeBtn.className="remove-btn";
-    removeBtn.textContent="Remove";
-    removeBtn.onclick=()=>{
-      if(key===myId){
-        if(confirm("Remove yourself from the roster? You'll need to re-enter your name to rejoin.")){
-          db.ref("people/"+key).remove();
-          localStorage.removeItem("scheduleId");
-          location.reload();
-        }
-      }else{
-        if(requestAdmin()){
+    if(key===myId || isAdmin()){
+      const removeBtn=document.createElement("button");
+      removeBtn.className="remove-btn";
+      removeBtn.textContent="Remove";
+      removeBtn.onclick=async()=>{
+        if(key===myId){
+          if(confirm("Remove yourself from the roster? You'll need to log in again to rejoin.")){
+            const user=auth.currentUser;
+            await db.ref("people/"+key).remove();
+            try{ await user.delete(); }catch(e){ /* needs recent login; roster slot is freed regardless */ }
+            auth.signOut();
+          }
+        }else{
           if(confirm("Remove "+name+" from the roster?")){
             db.ref("people/"+key).remove();
           }
         }
-      }
-    };
-    row.appendChild(removeBtn);
+      };
+      row.appendChild(removeBtn);
+    }
     list.appendChild(row);
   });
 }
 
-function wireNav(){
+function wireCalendarControls(){
   document.getElementById("prevBtn").onclick=()=>goTo(view.year,view.month-1);
   document.getElementById("nextBtn").onclick=()=>goTo(view.year,view.month+1);
   document.getElementById("todayBtn").onclick=()=>{
@@ -380,7 +450,7 @@ function wireNav(){
     const newName=prompt("Enter your new name:",myName);
     if(newName && newName.trim()){
       myName=newName.trim();
-      db.ref("people/"+myId).set(myName);
+      db.ref("people/"+myId+"/name").set(myName);
     }
   };
   document.getElementById("managePeopleBtn").onclick=()=>{
@@ -393,25 +463,22 @@ function wireNav(){
       panel.style.display="block";
     }
   };
+  document.getElementById("signOutBtn").onclick=()=>auth.signOut();
 }
 
 function startApp(id,name){
   myId=id;
   myName=name;
-
-  document.getElementById("setupView").style.display="none";
-  document.getElementById("calendarView").style.display="block";
+  showView("calendarView");
 
   if(peopleRef) peopleRef.off();
   peopleRef=db.ref("people");
   peopleRef.on("value",snap=>{
     people=snap.val()||{};
     if(!people[myId]){
-      localStorage.removeItem("scheduleId");
-      location.reload();
       return;
     }
-    myName=people[myId];
+    myName=people[myId].name;
     document.getElementById("meLabel").textContent=myName;
     if(document.getElementById("peoplePanel").style.display==="block"){
       renderPeoplePanel();
@@ -428,47 +495,140 @@ function startApp(id,name){
   });
 }
 
+async function handleAuthChange(user){
+  if(!user){
+    showView("nameView");
+    return;
+  }
+  await user.reload();
+  if(!user.emailVerified){
+    document.getElementById("verifyEmailText").textContent=user.email;
+    showView("verifyView");
+    return;
+  }
+  const snap=await db.ref("people/"+user.uid).once("value");
+  if(snap.exists()){
+    startApp(user.uid,snap.val().name);
+  }else{
+    const count=await getPeopleCount();
+    if(count>=MAX_PEOPLE){
+      showView("fullView");
+      await auth.signOut();
+      return;
+    }
+    showView("rejoinView");
+  }
+}
+
+function wireAuthForms(){
+  document.getElementById("nameContinueBtn").onclick=async()=>{
+    const name=document.getElementById("nameInput").value.trim();
+    if(!name) return;
+    pendingName=name;
+    const match=await findPersonByName(name);
+    if(match){
+      pendingEmail=match.email;
+      document.getElementById("loginAsText").textContent="Welcome back, "+match.name+". Enter your password to continue.";
+      document.getElementById("loginPassword").value="";
+      document.getElementById("loginError").textContent="";
+      showView("loginView");
+    }else{
+      document.getElementById("signupNamePreview").textContent=name;
+      document.getElementById("signupError").textContent="";
+      showView("signupView");
+    }
+  };
+
+  document.getElementById("loginBtn").onclick=async()=>{
+    const pw=document.getElementById("loginPassword").value;
+    const errEl=document.getElementById("loginError");
+    if(!pw){ errEl.textContent="Enter your password."; return; }
+    try{
+      await auth.signInWithEmailAndPassword(pendingEmail,pw);
+    }catch(e){
+      errEl.textContent="Incorrect password.";
+    }
+  };
+  document.getElementById("loginBackBtn").onclick=()=>showView("nameView");
+
+  document.getElementById("signupBtn").onclick=async()=>{
+    const email=document.getElementById("signupEmail").value.trim();
+    const pw=document.getElementById("signupPassword").value;
+    const pw2=document.getElementById("signupPassword2").value;
+    const errEl=document.getElementById("signupError");
+    errEl.textContent="";
+    if(!email||!pw){ errEl.textContent="Fill in all fields."; return; }
+    if(pw.length<6){ errEl.textContent="Password must be at least 6 characters."; return; }
+    if(pw!==pw2){ errEl.textContent="Passwords don't match."; return; }
+
+    const count=await getPeopleCount();
+    if(count>=MAX_PEOPLE){
+      showView("fullView");
+      return;
+    }
+
+    try{
+      const cred=await auth.createUserWithEmailAndPassword(email,pw);
+      await cred.user.sendEmailVerification();
+      await db.ref("people/"+cred.user.uid).set({name:pendingName,email:email});
+    }catch(e){
+      if(e.code==="auth/email-already-in-use"){
+        errEl.textContent="That email already has an account here. Go back and enter the matching name to log in instead.";
+      }else if(e.code==="auth/invalid-email"){
+        errEl.textContent="Enter a valid email address.";
+      }else{
+        errEl.textContent=e.message;
+      }
+    }
+  };
+  document.getElementById("signupBackBtn").onclick=()=>showView("nameView");
+
+  document.getElementById("verifyContinueBtn").onclick=async()=>{
+    await auth.currentUser.reload();
+    if(auth.currentUser.emailVerified){
+      handleAuthChange(auth.currentUser);
+    }else{
+      document.getElementById("verifyError").textContent="Still not verified — check your inbox (and spam folder).";
+    }
+  };
+  document.getElementById("resendBtn").onclick=async()=>{
+    await auth.currentUser.sendEmailVerification();
+    document.getElementById("verifyError").textContent="Verification email resent.";
+  };
+  document.getElementById("verifySignOutBtn").onclick=()=>auth.signOut();
+
+  document.getElementById("rejoinBtn").onclick=async()=>{
+    const name=document.getElementById("rejoinNameInput").value.trim();
+    if(!name) return;
+    const count=await getPeopleCount();
+    if(count>=MAX_PEOPLE){
+      showView("fullView");
+      await auth.signOut();
+      return;
+    }
+    await db.ref("people/"+auth.currentUser.uid).set({name:name,email:auth.currentUser.email});
+    handleAuthChange(auth.currentUser);
+  };
+  document.getElementById("rejoinSignOutBtn").onclick=()=>auth.signOut();
+}
+
 function init(){
   if(!isConfigured()){
-    document.getElementById("configView").style.display="block";
+    showView("configView");
     return;
   }
 
   firebase.initializeApp(firebaseConfig);
+  auth=firebase.auth();
   db=firebase.database();
-  wireNav();
 
-  document.getElementById("nameSaveBtn").onclick=()=>{
-    const val=document.getElementById("nameInput").value.trim();
-    if(!val) return;
-    const id=genId();
-    localStorage.setItem("scheduleId",id);
-    db.ref("people/"+id).set(val).then(()=>{
-      startApp(id,val);
-    });
-  };
-  document.getElementById("nameInput").addEventListener("keydown",(e)=>{
-    if(e.key==="Enter") document.getElementById("nameSaveBtn").click();
-  });
+  wireAuthForms();
+  wireCalendarControls();
 
-  const existingId=localStorage.getItem("scheduleId");
-  if(existingId){
-    db.ref("people/"+existingId).once("value").then(snap=>{
-      const name=snap.val();
-      if(name){
-        startApp(existingId,name);
-      }else{
-        localStorage.removeItem("scheduleId");
-        document.getElementById("setupView").style.display="block";
-      }
-    });
-  }else{
-    document.getElementById("setupView").style.display="block";
-  }
+  auth.onAuthStateChanged(handleAuthChange);
 }
 
 init();
 </script>
 </body>
 </html>
-
