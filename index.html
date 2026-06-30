@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Schedule</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --paper:#F6F2E7;
+    --paper-soft:#EFE9D8;
+    --ink:#23271F;
+    --ink-soft:#6B6A5E;
+    --sand:#DFD6BA;
+    --weekend:#FBF3DC;
+    --weekend-border:#E7D5A0;
+    --gold:#B4862C;
+    --green:#2F6B4F;
+    --green-soft:#E2EFE6;
+    --red:#A23B3B;
+    --red-soft:#F6E5E1;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#1C1E18;
+      --paper-soft:#262921;
+      --ink:#EFEAD9;
+      --ink-soft:#9B9A8B;
+      --sand:#3A3B30;
+      --weekend:#2A2A1E;
+      --weekend-border:#4A4528;
+      --gold:#D9AE5C;
+      --green:#5FAE85;
+      --green-soft:#1E3127;
+      --red:#D97A6E;
+      --red-soft:#3A2420;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;}
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 40px;}
+
+  .setup{max-width:420px;margin:60px auto;text-align:center;}
+  .setup h1{font-family:'Fraunces',serif;font-weight:600;font-size:26px;margin-bottom:6px;}
+  .setup p{font-size:14px;color:var(--ink-soft);margin-bottom:16px;line-height:1.5;text-align:left;}
+  .setup input{
+    width:100%;padding:11px 14px;border-radius:20px;border:1px solid var(--sand);
+    background:var(--paper-soft);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;
+    text-align:center;margin-bottom:12px;
+  }
+  .setup button{
+    padding:10px 22px;border-radius:20px;border:none;background:var(--green);
+    color:var(--green-soft);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;cursor:pointer;
+  }
+  .setup code{background:var(--paper-soft);padding:1px 6px;border-radius:4px;font-size:13px;}
+
+  .identity{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);margin-bottom:18px;}
+  .identity b{color:var(--ink);font-weight:500;}
+  .identity button{
+    border:none;background:none;color:var(--gold);font-size:13px;cursor:pointer;
+    text-decoration:underline;padding:0;font-family:'Inter',sans-serif;
+  }
+  .conn{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);margin-left:auto;}
+  .conn .dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .conn.offline .dot{background:var(--red);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .month-label{font-family:'Fraunces',serif;font-weight:600;font-size:32px;letter-spacing:0.2px;}
+  .year-label{font-family:'Fraunces',serif;font-weight:400;font-size:32px;color:var(--ink-soft);margin-left:8px;}
+  .nav{display:flex;align-items:center;gap:6px;}
+  .nav button{
+    width:36px;height:36px;border-radius:50%;border:1px solid var(--sand);
+    background:var(--paper-soft);color:var(--ink);font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .nav button:hover{background:var(--sand);}
+  .today-btn{
+    border:1px solid var(--sand);background:var(--paper-soft);color:var(--ink-soft);
+    font-family:'Inter',sans-serif;font-size:13px;padding:8px 14px;border-radius:20px;cursor:pointer;
+  }
+  .today-btn:hover{color:var(--ink);background:var(--sand);}
+
+  .weekday-row{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px;}
+  .weekday-row div{font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-soft);text-align:center;padding-bottom:4px;}
+
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
+  .cell{
+    background:var(--paper-soft);border:1px solid var(--sand);border-radius:var(--radius);
+    min-height:118px;padding:8px;display:flex;flex-direction:column;gap:6px;
+  }
+  .cell.weekend{background:var(--weekend);border-color:var(--weekend-border);}
+  .cell.empty{background:transparent;border-color:transparent;}
+  .date-num{font-family:'Fraunces',serif;font-size:15px;font-weight:500;}
+  .cell.weekend .date-num{color:var(--gold);}
+
+  .slot-label{font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px;}
+  .chips{display:flex;flex-wrap:wrap;gap:4px;}
+  .chip{
+    width:22px;height:22px;border-radius:50%;font-size:9px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;border:none;
+    font-family:'Inter',sans-serif;
+  }
+  .chip.on{background:var(--green);color:var(--green-soft);}
+  .chip.off{background:var(--red-soft);color:var(--red);}
+  .chip.mine{cursor:pointer;box-shadow:0 0 0 2px var(--paper-soft),0 0 0 3px var(--ink-soft);}
+  .cell.weekend .chip.mine{box-shadow:0 0 0 2px var(--weekend),0 0 0 3px var(--ink-soft);}
+  .chip.theirs{cursor:default;opacity:0.85;}
+
+  .legend{display:flex;gap:18px;margin-top:24px;font-size:12px;color:var(--ink-soft);align-items:center;flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:6px;}
+  .legend .dot{width:9px;height:9px;border-radius:50%;}
+
+  .hint{font-size:12px;color:var(--ink-soft);margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="configView" class="setup" style="display:none;">
+    <h1>One-time setup needed</h1>
+    <p>This page needs your Firebase project's config values before it can save anything. Open this file in a text editor, find the <code>firebaseConfig</code> object near the top of the script, and replace the placeholder strings with the values from your Firebase project (Project settings → General → Your apps → SDK setup and configuration).</p>
+    <p>Once that's filled in and saved, reload this page.</p>
+  </div>
+
+  <div id="setupView" class="setup" style="display:none;">
+    <h1>Who's scheduling?</h1>
+    <p style="text-align:center;">Enter your name so your toggles are kept separate from everyone else's.</p>
+    <input id="nameInput" type="text" placeholder="Your name" maxlength="24">
+    <br>
+    <button id="nameSaveBtn">Continue</button>
+  </div>
+
+  <div id="calendarView" style="display:none;">
+    <div class="identity">
+      You're scheduling as <b id="meLabel"></b>
+      <button id="changeNameBtn">change</button>
+      <span class="conn" id="connStatus"><span class="dot"></span><span id="connText">connected</span></span>
+    </div>
+
+    <div class="topbar">
+      <div>
+        <span class="month-label" id="monthLabel"></span><span class="year-label" id="yearLabel"></span>
+      </div>
+      <div class="nav">
+        <button id="prevBtn" aria-label="Previous month">&#8249;</button>
+        <button class="today-btn" id="todayBtn">Today</button>
+        <button id="nextBtn" aria-label="Next month">&#8250;</button>
+      </div>
+    </div>
+
+    <div class="weekday-row">
+      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+    </div>
+    <div class="grid" id="grid"></div>
+
+    <div class="legend">
+      <span><span class="dot" style="background:var(--green)"></span>Available</span>
+      <span><span class="dot" style="background:var(--red)"></span>Not available</span>
+      <span>Ringed circle = you</span>
+    </div>
+    <p class="hint">Tap your own circle to toggle it. Everyone with this link sees the same roster live. Weekends show separate 11am and 8pm rows.</p>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAm3iQiu24hoCewBGMvSNMwAGMdiZU91kI",
+  authDomain: "speeds-9e51c.firebaseapp.com",
+  databaseURL: "https://speeds-9e51c-default-rtdb.firebaseio.com",
+  projectId: "speeds-9e51c",
+  storageBucket: "speeds-9e51c.firebasestorage.app",
+  messagingSenderId: "475382285855",
+  appId: "1:475382285855:web:795b1c1570012e6c10372a",
+};
+
+const monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
+let view={year:2026,month:5};
+let monthData={};
+let monthRef=null;
+let peopleRef=null;
+let people={};
+let myName="";
+let mySafeKey="";
+
+function pad(n){return n<10?"0"+n:""+n;}
+function monthPath(y,m){return y+"-"+pad(m+1);}
+function safeKey(name){
+  return name.trim().toLowerCase().replace(/[.#$\[\]\/\s]+/g,"_").slice(0,40)||"guest";
+}
+function initials(name){
+  const parts=name.trim().split(/\s+/);
+  if(parts.length===1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0]+parts[1][0]).toUpperCase();
+}
+
+function isConfigured(){
+  return !firebaseConfig.apiKey.startsWith("PASTE_");
+}
+
+function isWeekend(dow){return dow===0||dow===6;}
+
+function buildChipRow(statusMap,path){
+  const row=document.createElement("div");
+  row.className="chips";
+  Object.keys(people).forEach(key=>{
+    const name=people[key];
+    const isOn=!!(statusMap&&statusMap[key]);
+    const chip=document.createElement("button");
+    const mine=key===mySafeKey;
+    chip.className="chip "+(isOn?"on":"off")+" "+(mine?"mine":"theirs");
+    chip.textContent=initials(name);
+    chip.title=name+(isOn?" — available":" — not available")+(mine?" (you)":"");
+    if(mine){
+      chip.onclick=()=>{
+        db.ref(path+"/"+key).set(!isOn);
+      };
+    }
+    row.appendChild(chip);
+  });
+  return row;
+}
+
+function buildCell(dayNum,dow){
+  const cell=document.createElement("div");
+  cell.className="cell"+(isWeekend(dow)?" weekend":"");
+
+  const num=document.createElement("div");
+  num.className="date-num";
+  num.textContent=dayNum;
+  cell.appendChild(num);
+
+  const base="months/"+monthPath(view.year,view.month)+"/"+dayNum;
+  const entry=monthData[dayNum]||{};
+
+  if(isWeekend(dow)){
+    const amLabel=document.createElement("div");
+    amLabel.className="slot-label";
+    amLabel.textContent="11am";
+    cell.appendChild(amLabel);
+    cell.appendChild(buildChipRow(entry.am,base+"/am"));
+
+    const pmLabel=document.createElement("div");
+    pmLabel.className="slot-label";
+    pmLabel.textContent="8pm";
+    cell.appendChild(pmLabel);
+    cell.appendChild(buildChipRow(entry.pm,base+"/pm"));
+  }else{
+    cell.appendChild(buildChipRow(entry.weekday,base+"/weekday"));
+  }
+
+  return cell;
+}
+
+function render(){
+  document.getElementById("monthLabel").textContent=monthNames[view.month];
+  document.getElementById("yearLabel").textContent=" "+view.year;
+  document.getElementById("meLabel").textContent=myName;
+
+  const grid=document.getElementById("grid");
+  grid.innerHTML="";
+
+  const firstDow=new Date(view.year,view.month,1).getDay();
+  const daysInMonth=new Date(view.year,view.month+1,0).getDate();
+
+  for(let i=0;i<firstDow;i++){
+    const empty=document.createElement("div");
+    empty.className="cell empty";
+    grid.appendChild(empty);
+  }
+  for(let d=1;d<=daysInMonth;d++){
+    const dow=new Date(view.year,view.month,d).getDay();
+    grid.appendChild(buildCell(d,dow));
+  }
+}
+
+function attachMonthListener(y,m){
+  if(monthRef) monthRef.off();
+  monthRef=db.ref("months/"+monthPath(y,m));
+  monthRef.on("value",snap=>{
+    monthData=snap.val()||{};
+    render();
+  });
+}
+
+function goTo(y,m){
+  if(m<0){m=11;y--;}
+  if(m>11){m=0;y++;}
+  view={year:y,month:m};
+  attachMonthListener(y,m);
+}
+
+let db;
+
+function wireNav(){
+  document.getElementById("prevBtn").onclick=()=>goTo(view.year,view.month-1);
+  document.getElementById("nextBtn").onclick=()=>goTo(view.year,view.month+1);
+  document.getElementById("todayBtn").onclick=()=>{
+    const now=new Date();
+    goTo(now.getFullYear(),now.getMonth());
+  };
+  document.getElementById("changeNameBtn").onclick=()=>{
+    document.getElementById("calendarView").style.display="none";
+    document.getElementById("setupView").style.display="block";
+    document.getElementById("nameInput").value=myName;
+  };
+}
+
+function startApp(name){
+  myName=name;
+  mySafeKey=safeKey(name);
+  localStorage.setItem("scheduleName",name);
+  db.ref("people/"+mySafeKey).set(name);
+
+  document.getElementById("setupView").style.display="none";
+  document.getElementById("calendarView").style.display="block";
+
+  if(peopleRef) peopleRef.off();
+  peopleRef=db.ref("people");
+  peopleRef.on("value",snap=>{
+    people=snap.val()||{};
+    render();
+  });
+
+  goTo(view.year,view.month);
+
+  db.ref(".info/connected").on("value",snap=>{
+    const ok=snap.val()===true;
+    document.getElementById("connStatus").className="conn"+(ok?"":" offline");
+    document.getElementById("connText").textContent=ok?"connected":"offline";
+  });
+}
+
+function init(){
+  if(!isConfigured()){
+    document.getElementById("configView").style.display="block";
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  db=firebase.database();
+  wireNav();
+
+  document.getElementById("nameSaveBtn").onclick=()=>{
+    const val=document.getElementById("nameInput").value.trim();
+    if(!val) return;
+    startApp(val);
+  };
+  document.getElementById("nameInput").addEventListener("keydown",(e)=>{
+    if(e.key==="Enter") document.getElementById("nameSaveBtn").click();
+  });
+
+  const existing=localStorage.getItem("scheduleName");
+  if(existing){
+    startApp(existing);
+  }else{
+    document.getElementById("setupView").style.display="block";
+  }
+}
+
+init();
+</script>
+</body>
+</html>
