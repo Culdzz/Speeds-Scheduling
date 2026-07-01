@@ -236,7 +236,7 @@
       <span><span class="dot" style="background:var(--red)"></span>Not available</span>
       <span>Ringed circle = you</span>
     </div>
-    <p class="hint">Tap your own circle to toggle it. Everyone with this link sees the same roster live. Weekends show separate 11am and 8pm rows.</p>
+    <p class="hint">Tap your own circle to toggle it. Everyone with this link sees the same roster live. Times are shown in your local timezone<span id="tzNote"></span> — the same slot may show a different clock time on someone else's screen.</p>
   </div>
 
 </div>
@@ -281,6 +281,45 @@ function isConfigured(){
   return !firebaseConfig.apiKey.startsWith("PASTE_");
 }
 function isWeekend(dow){return dow===0||dow===6;}
+
+// Base times are set in Mountain Time (America/Denver), which shifts between
+// MST and MDT across the year. Convert to each viewer's local time, computed
+// per calendar day so daylight saving is handled correctly.
+function tzOffsetMinutes(date,timeZone){
+  const dtf=new Intl.DateTimeFormat("en-US",{
+    timeZone,hourCycle:"h23",
+    year:"numeric",month:"2-digit",day:"2-digit",
+    hour:"2-digit",minute:"2-digit",second:"2-digit"
+  });
+  const parts=dtf.formatToParts(date).reduce((acc,p)=>{acc[p.type]=p.value;return acc;},{});
+  const asUTC=Date.UTC(parts.year,parts.month-1,parts.day,parts.hour,parts.minute,parts.second);
+  return (asUTC-date.getTime())/60000;
+}
+
+function denverWallTimeToUTCMillis(year,monthIdx,day,hour,minute){
+  let guess=Date.UTC(year,monthIdx,day,hour,minute);
+  let offset=tzOffsetMinutes(new Date(guess),"America/Denver");
+  let utcMillis=guess-offset*60000;
+  offset=tzOffsetMinutes(new Date(utcMillis),"America/Denver");
+  utcMillis=guess-offset*60000;
+  return utcMillis;
+}
+
+function dateOnlyDiffDays(y1,m1,d1,y2,m2,d2){
+  return Math.round((Date.UTC(y2,m2,d2)-Date.UTC(y1,m1,d1))/86400000);
+}
+
+function localLabelFor(year,monthIdx,day,hour,minute){
+  const utcMillis=denverWallTimeToUTCMillis(year,monthIdx,day,hour,minute);
+  const d=new Date(utcMillis);
+  let label=d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+  const diff=dateOnlyDiffDays(year,monthIdx,day,d.getFullYear(),d.getMonth(),d.getDate());
+  if(diff>0) label+=" (next day)";
+  if(diff<0) label+=" (prev day)";
+  return label;
+}
+
+const VIEWER_TZ=(Intl.DateTimeFormat().resolvedOptions().timeZone||"").replace(/_/g," ");
 function isAdmin(){
   return !!(auth.currentUser && auth.currentUser.uid===ADMIN_UID);
 }
@@ -344,19 +383,19 @@ function buildCell(dayNum,dow){
   if(isWeekend(dow)){
     const amLabel=document.createElement("div");
     amLabel.className="slot-label";
-    amLabel.textContent="11am";
+    amLabel.textContent=localLabelFor(view.year,view.month,dayNum,11,0);
     cell.appendChild(amLabel);
     cell.appendChild(buildChipRow(entry.am,base+"/am"));
 
     const pmLabel=document.createElement("div");
     pmLabel.className="slot-label";
-    pmLabel.textContent="8pm";
+    pmLabel.textContent=localLabelFor(view.year,view.month,dayNum,20,0);
     cell.appendChild(pmLabel);
     cell.appendChild(buildChipRow(entry.pm,base+"/pm"));
   }else{
     const label=document.createElement("div");
     label.className="slot-label";
-    label.textContent="8pm";
+    label.textContent=localLabelFor(view.year,view.month,dayNum,20,0);
     cell.appendChild(label);
     cell.appendChild(buildChipRow(entry.weekday,base+"/weekday"));
   }
@@ -368,6 +407,8 @@ function render(){
   document.getElementById("monthLabel").textContent=monthNames[view.month];
   document.getElementById("yearLabel").textContent=" "+view.year;
   document.getElementById("meLabel").textContent=myName;
+  const tzNote=document.getElementById("tzNote");
+  if(tzNote) tzNote.textContent=VIEWER_TZ?" ("+VIEWER_TZ+")":"";
 
   const grid=document.getElementById("grid");
   grid.innerHTML="";
