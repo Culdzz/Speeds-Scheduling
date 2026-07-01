@@ -423,9 +423,18 @@ function renderPeoplePanel(){
         if(key===myId){
           if(confirm("Remove yourself from the roster? You'll need to log in again to rejoin.")){
             const user=auth.currentUser;
-            await db.ref("people/"+key).remove();
-            try{ await user.delete(); }catch(e){ /* needs recent login; roster slot is freed regardless */ }
-            auth.signOut();
+            const pw=prompt("Confirm your password to finish removing your account:");
+            if(pw===null) return;
+            try{
+              const cred=firebase.auth.EmailAuthProvider.credential(user.email,pw);
+              await user.reauthenticateWithCredential(cred);
+              await db.ref("people/"+key).remove();
+              await user.delete();
+            }catch(e){
+              alert("Couldn't verify your password, so your account wasn't fully removed. Your roster spot is still freed up though — ask the organizer to clean up your login if needed.");
+              await db.ref("people/"+key).remove();
+              auth.signOut();
+            }
           }
         }else{
           if(confirm("Remove "+name+" from the roster?")){
