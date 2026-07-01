@@ -452,13 +452,29 @@ function renderPeoplePanel(){
   const list=document.getElementById("peopleList");
   list.innerHTML="";
   Object.keys(people).forEach(key=>{
-    const name=people[key].name;
+    const person=people[key];
+    const name=person.name;
     const row=document.createElement("div");
     row.className="people-row";
 
     const label=document.createElement("span");
-    label.textContent=name+(key===myId?" (you)":"");
+    label.textContent=name+(key===myId?" (you)":"")+(person.verifiedOverride===true?" — force-verified":"");
     row.appendChild(label);
+
+    const btnGroup=document.createElement("span");
+
+    if(isAdmin() && key!==myId && person.verifiedOverride!==true){
+      const verifyBtn=document.createElement("button");
+      verifyBtn.className="remove-btn";
+      verifyBtn.textContent="Force verify";
+      verifyBtn.style.marginRight="6px";
+      verifyBtn.onclick=()=>{
+        if(confirm("Let "+name+" in without email verification? Use this if they're stuck on a broken verification link.")){
+          db.ref("people/"+key+"/verifiedOverride").set(true);
+        }
+      };
+      btnGroup.appendChild(verifyBtn);
+    }
 
     if(key===myId || isAdmin()){
       const removeBtn=document.createElement("button");
@@ -487,8 +503,9 @@ function renderPeoplePanel(){
           }
         }
       };
-      row.appendChild(removeBtn);
+      btnGroup.appendChild(removeBtn);
     }
+    row.appendChild(btnGroup);
     list.appendChild(row);
   });
 }
@@ -555,14 +572,16 @@ async function handleAuthChange(user){
     return;
   }
   await user.reload();
-  if(!user.emailVerified){
+  const snap=await db.ref("people/"+user.uid).once("value");
+  const person=snap.val();
+  const verified=user.emailVerified || (person && person.verifiedOverride===true);
+  if(!verified){
     document.getElementById("verifyEmailText").textContent=user.email;
     showView("verifyView");
     return;
   }
-  const snap=await db.ref("people/"+user.uid).once("value");
-  if(snap.exists()){
-    startApp(user.uid,snap.val().name);
+  if(person){
+    startApp(user.uid,person.name);
   }else{
     const count=await getPeopleCount();
     if(count>=MAX_PEOPLE){
@@ -639,10 +658,12 @@ function wireAuthForms(){
 
   document.getElementById("verifyContinueBtn").onclick=async()=>{
     await auth.currentUser.reload();
-    if(auth.currentUser.emailVerified){
+    const snap=await db.ref("people/"+auth.currentUser.uid).once("value");
+    const person=snap.val();
+    if(auth.currentUser.emailVerified || (person && person.verifiedOverride===true)){
       handleAuthChange(auth.currentUser);
     }else{
-      document.getElementById("verifyError").textContent="Still not verified — check your inbox (and spam folder).";
+      document.getElementById("verifyError").textContent="Still not verified — check your inbox (and spam folder), or ask the organizer to force-verify you.";
     }
   };
   document.getElementById("resendBtn").onclick=async()=>{
