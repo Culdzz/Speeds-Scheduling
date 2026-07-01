@@ -113,7 +113,9 @@
   }
   .cell.weekend{background:var(--weekend);border-color:var(--weekend-border);}
   .cell.empty{background:transparent;border-color:transparent;}
+  .cell.today{border-color:var(--gold);border-width:2px;box-shadow:0 0 0 1px var(--gold);}
   .date-num{font-family:'Fraunces',serif;font-size:15px;font-weight:500;}
+  .cell.today .date-num{color:var(--gold);font-weight:600;}
   .cell.weekend .date-num{color:var(--gold);}
 
   .slot-label{font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px;}
@@ -259,7 +261,8 @@ const ADMIN_UID = "S3dgingMys3Lf@69";
 const MAX_PEOPLE = 8;
 
 const monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
-let view={year:2026,month:5};
+const today=new Date();
+let view={year:today.getFullYear(),month:today.getMonth()};
 let monthData={};
 let monthRef=null;
 let peopleRef=null;
@@ -370,7 +373,8 @@ function buildChipRow(statusMap,path){
 
 function buildCell(dayNum,dow){
   const cell=document.createElement("div");
-  cell.className="cell"+(isWeekend(dow)?" weekend":"");
+  const isToday=view.year===today.getFullYear()&&view.month===today.getMonth()&&dayNum===today.getDate();
+  cell.className="cell"+(isWeekend(dow)?" weekend":"")+(isToday?" today":"");
 
   const num=document.createElement("div");
   num.className="date-num";
