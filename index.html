@@ -257,7 +257,7 @@ const firebaseConfig = {
   appId: "1:475382285855:web:795b1c1570012e6c10372a"
 };
 
-const ADMIN_UID = "t0hfoOtsPBc9jm9m7aBlXG7vxro2";
+const ADMIN_UID = "Eagle247%6651G";
 const MAX_PEOPLE = 8;
 
 const monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -440,11 +440,44 @@ function attachMonthListener(y,m){
   });
 }
 
+function monthIndex(y,m){ return y*12+m; }
+
 function goTo(y,m){
   if(m<0){m=11;y--;}
   if(m>11){m=0;y++;}
+  const idx=monthIndex(y,m);
+  const nowIdx=monthIndex(today.getFullYear(),today.getMonth());
+  if(idx>nowIdx+12){
+    alert("You can only schedule up to 1 year ahead.");
+    return;
+  }
   view={year:y,month:m};
   attachMonthListener(y,m);
+}
+
+// Removes month nodes from the database that are older than the current
+// month, to keep stored data from growing indefinitely. Only the admin's
+// session does this (regular accounts don't have delete permission on other
+// people's entries under the database rules).
+async function cleanupOldMonths(){
+  if(!isAdmin()) return;
+  try{
+    const snap=await db.ref("months").once("value");
+    const all=snap.val()||{};
+    const nowIdx=monthIndex(today.getFullYear(),today.getMonth());
+    const deletions=[];
+    Object.keys(all).forEach(key=>{
+      const m=key.match(/^(\d{4})-(\d{2})$/);
+      if(!m) return;
+      const idx=monthIndex(parseInt(m[1],10),parseInt(m[2],10)-1);
+      if(idx<nowIdx || idx>nowIdx+12){
+        deletions.push(db.ref("months/"+key).remove());
+      }
+    });
+    if(deletions.length) await Promise.all(deletions);
+  }catch(e){
+    console.error("Month cleanup failed",e);
+  }
 }
 
 function renderPeoplePanel(){
@@ -541,6 +574,7 @@ function startApp(id,name){
   myId=id;
   myName=name;
   showView("calendarView");
+  cleanupOldMonths();
 
   if(peopleRef) peopleRef.off();
   peopleRef=db.ref("people");
