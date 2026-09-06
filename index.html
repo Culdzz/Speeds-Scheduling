@@ -152,6 +152,7 @@
     <h1>Who's scheduling?</h1>
     <p>Enter your name. If it's already on this calendar, we'll ask for your password instead.</p>
     <input id="nameInput" type="text" placeholder="Your name" maxlength="24">
+    <div class="auth-error" id="nameError"></div>
     <br>
     <button id="nameContinueBtn">Continue</button>
   </div>
@@ -630,9 +631,17 @@ async function handleAuthChange(user){
 function wireAuthForms(){
   document.getElementById("nameContinueBtn").onclick=async()=>{
     const name=document.getElementById("nameInput").value.trim();
+    const errEl=document.getElementById("nameError");
+    errEl.textContent="";
     if(!name) return;
     pendingName=name;
-    const match=await findPersonByName(name);
+    let match;
+    try{
+      match=await findPersonByName(name);
+    }catch(e){
+      errEl.textContent="Couldn't reach the calendar's database. Check your connection and try again, or let the organizer know if this keeps happening.";
+      return;
+    }
     if(match){
       pendingEmail=match.email;
       document.getElementById("loginAsText").textContent="Welcome back, "+match.name+". Enter your password to continue.";
