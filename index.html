@@ -160,6 +160,22 @@
     padding:6px 14px;border-radius:16px;cursor:pointer;font-family:'Inter',sans-serif;
   }
   .quick button:hover{background:var(--sand);color:var(--ink);}
+  .copy-status{font-size:12px;color:var(--green);margin-top:8px;line-height:1.4;}
+  .copy-status:empty{display:none;}
+  .copy-panel{margin-top:10px;padding:12px;border:1px solid var(--sand);border-radius:10px;background:var(--paper-soft);}
+  .copy-panel .note{font-size:12px;color:var(--ink-soft);margin:0 0 10px;line-height:1.5;}
+  .copy-panel .quick{margin:0 0 10px;flex-wrap:wrap;}
+  .day-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:6px;margin-bottom:12px;}
+  .day-chip{
+    padding:6px 2px;border-radius:8px;border:1px solid var(--sand);background:var(--paper);
+    color:var(--ink-soft);font-size:11px;font-family:'Inter',sans-serif;cursor:pointer;line-height:1.3;
+  }
+  .day-chip.on{background:var(--green);color:var(--green-soft);border-color:var(--green);}
+  .apply-btn{
+    border:none;background:var(--green);color:var(--green-soft);font-size:13px;font-weight:500;
+    padding:8px 18px;border-radius:18px;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .apply-btn:disabled{opacity:0.4;cursor:default;}
   .overlap-row{padding:8px 0;border-bottom:1px solid var(--sand);font-size:13px;}
   .overlap-row:last-child{border-bottom:none;}
   .overlap-top{display:flex;justify-content:space-between;gap:10px;}
@@ -293,6 +309,13 @@
         <button id="allDayBtn">All day</button>
         <button id="clearDayBtn">Clear</button>
       </div>
+      <h3>Copy your hours</h3>
+      <div class="quick" style="margin-top:0">
+        <button id="copyNextBtn">Copy to next day &rarr;</button>
+        <button id="copyMoreBtn">Copy to other days&hellip;</button>
+      </div>
+      <div class="copy-status" id="copyStatus"></div>
+      <div class="copy-panel" id="copyPanel" style="display:none;"></div>
       <h3>Everyone</h3>
       <div id="overlapList"></div>
     </div>
@@ -323,6 +346,9 @@ let view={year:today.getFullYear(),month:today.getMonth()};
 let monthData={};
 let monthRef=null;
 let openDay=null;
+let copySel=new Set();
+let copyOpen=false;
+let copyStatus="";
 let peopleRef=null;
 let people={};
 let myId="";
@@ -515,7 +541,9 @@ function buildCell(dayNum,dow){
   return cell;
 }
 
-function openDayModal(dayNum){
+function openDayModal(dayNum,keepStatus){
+  if(openDay!==dayNum){ copySel=new Set(); copyOpen=false; }
+  if(!keepStatus) copyStatus="";
   openDay=dayNum;
   document.getElementById("dayModal").style.display="flex";
   renderModal();
@@ -523,6 +551,9 @@ function openDayModal(dayNum){
 
 function closeModal(){
   openDay=null;
+  copySel=new Set();
+  copyOpen=false;
+  copyStatus="";
   const m=document.getElementById("dayModal");
   if(m) m.style.display="none";
 }
@@ -549,6 +580,8 @@ function renderModal(){
     };
     grid.appendChild(btn);
   }
+
+  renderCopyPanel(dayNum);
 
   const list=document.getElementById("overlapList");
   list.innerHTML="";
@@ -591,6 +624,142 @@ function saveMyHours(dayNum,bits){
   render();
   const ref=db.ref("availability/"+monthPath(view.year,view.month)+"/"+dayNum+"/"+myId);
   return hasAny?ref.set(str):ref.remove();
+}
+
+// ----- Copying your hours to other days -----
+function hoursPath(y,m,d){
+  return "availability/"+monthPath(y,m)+"/"+d+"/"+myId;
+}
+
+// targets: [{y, m, d}] where m is a 0-based month index. Copies the hours of
+// the day currently open in the popup onto each target day.
+function copyHoursTo(targets){
+  const bits=bitsFor(openDay,myId);
+  const str=bits.map(b=>b?"1":"0").join("");
+  if(str.indexOf("1")===-1){
+    copyStatus="Set some hours for this day first, then copy them.";
+    renderModal();
+    return Promise.resolve(false);
+  }
+  targets.forEach(t=>{
+    if(t.y===view.year && t.m===view.month){
+      monthData[t.d]=monthData[t.d]||{};
+      monthData[t.d][myId]=str;
+    }
+  });
+  render();
+  return Promise.all(targets.map(t=>db.ref(hoursPath(t.y,t.m,t.d)).set(str)))
+    .then(()=>true)
+    .catch(e=>{
+      copyStatus="Couldn't copy: "+e.message;
+      renderModal();
+      return false;
+    });
+}
+
+async function copyToNextDay(){
+  const src=openDay;
+  if(src===null) return;
+  const next=new Date(view.year,view.month,src+1);
+  const t={y:next.getFullYear(),m:next.getMonth(),d:next.getDate()};
+  const nowIdx=monthIndex(today.getFullYear(),today.getMonth());
+  if(monthIndex(t.y,t.m)>nowIdx+12){
+    copyStatus="That's past the 1-year limit.";
+    renderModal();
+    return;
+  }
+  const srcLabel=new Date(view.year,view.month,src).toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"});
+  const ok=await copyHoursTo([t]);
+  if(!ok) return;
+  if(!(t.y===view.year && t.m===view.month)){
+    goTo(t.y,t.m);
+  }
+  openDayModal(t.d,true);
+  copyStatus="Copied from "+srcLabel+". Tap again to keep going, or adjust this day.";
+  renderModal();
+}
+
+function applyCopySelection(){
+  const targets=Array.from(copySel).sort((a,b)=>a-b).map(d=>({y:view.year,m:view.month,d:d}));
+  if(!targets.length) return;
+  copyHoursTo(targets).then(ok=>{
+    if(ok){
+      copyStatus="Copied to "+targets.length+(targets.length===1?" day.":" days.");
+      copySel=new Set();
+      renderModal();
+    }
+  });
+}
+
+function renderCopyPanel(dayNum){
+  document.getElementById("copyStatus").textContent=copyStatus;
+  const panel=document.getElementById("copyPanel");
+  panel.style.display=copyOpen?"block":"none";
+  if(!copyOpen) return;
+  panel.innerHTML="";
+
+  const daysInMonth=new Date(view.year,view.month+1,0).getDate();
+  if(dayNum>=daysInMonth){
+    const note=document.createElement("p");
+    note.className="note";
+    note.style.margin="0";
+    note.textContent="No more days left in "+monthNames[view.month]+". Use \"Copy to next day\" to carry these hours into the next month.";
+    panel.appendChild(note);
+    return;
+  }
+
+  const note=document.createElement("p");
+  note.className="note";
+  note.textContent="Pick the days in "+monthNames[view.month]+" to copy these hours to. This replaces any hours you've already set on them.";
+  panel.appendChild(note);
+
+  const srcDow=new Date(view.year,view.month,dayNum).getDay();
+  const presets=[
+    ["Next 7 days",(d,dow)=>d<=dayNum+7],
+    ["Same weekday",(d,dow)=>dow===srcDow],
+    ["Weekdays",(d,dow)=>dow>=1&&dow<=5],
+    ["Weekends",(d,dow)=>dow===0||dow===6],
+    ["All remaining",()=>true],
+    ["Clear",()=>false]
+  ];
+  const quick=document.createElement("div");
+  quick.className="quick";
+  presets.forEach(p=>{
+    const b=document.createElement("button");
+    b.textContent=p[0];
+    b.onclick=()=>{
+      copySel=new Set();
+      for(let d=dayNum+1;d<=daysInMonth;d++){
+        const dow=new Date(view.year,view.month,d).getDay();
+        if(p[1](d,dow)) copySel.add(d);
+      }
+      renderCopyPanel(dayNum);
+    };
+    quick.appendChild(b);
+  });
+  panel.appendChild(quick);
+
+  const grid=document.createElement("div");
+  grid.className="day-grid";
+  for(let d=dayNum+1;d<=daysInMonth;d++){
+    const dow=new Date(view.year,view.month,d).toLocaleDateString([],{weekday:"short"});
+    const chip=document.createElement("button");
+    chip.className="day-chip"+(copySel.has(d)?" on":"");
+    chip.innerHTML=dow+"<br>"+d;
+    chip.onclick=()=>{
+      if(copySel.has(d)) copySel.delete(d); else copySel.add(d);
+      renderCopyPanel(dayNum);
+    };
+    grid.appendChild(chip);
+  }
+  panel.appendChild(grid);
+
+  const apply=document.createElement("button");
+  apply.className="apply-btn";
+  apply.disabled=copySel.size===0;
+  apply.textContent=copySel.size?("Copy to "+copySel.size+(copySel.size===1?" day":" days")):"Select days to copy to";
+  apply.onclick=applyCopySelection;
+  panel.appendChild(apply);
 }
 
 function render(){
@@ -639,6 +808,7 @@ function goTo(y,m){
     return;
   }
   closeModal();
+  monthData={};
   view={year:y,month:m};
   attachMonthListener(y,m);
 }
@@ -782,6 +952,11 @@ function wireCalendarControls(){
   document.getElementById("allDayBtn").onclick=()=>{
     if(openDay===null) return;
     saveMyHours(openDay,new Array(24).fill(true));
+  };
+  document.getElementById("copyNextBtn").onclick=copyToNextDay;
+  document.getElementById("copyMoreBtn").onclick=()=>{
+    copyOpen=!copyOpen;
+    renderModal();
   };
   document.getElementById("clearDayBtn").onclick=()=>{
     if(openDay===null) return;
