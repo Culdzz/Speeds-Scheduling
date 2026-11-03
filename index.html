@@ -253,6 +253,7 @@
       <h2>People on this calendar (<span id="peopleCount"></span>/15)</h2>
       <div id="peopleList"></div>
       <p class="people-panel-hint">You can always remove yourself. Only the organizer can remove someone else.</p>
+      <p class="people-panel-hint" id="adminDebug"></p>
     </div>
 
     <div class="topbar">
@@ -677,6 +678,11 @@ async function cleanupOldMonths(){
 
 function renderPeoplePanel(){
   document.getElementById("peopleCount").textContent=Object.keys(people).length;
+  const dbg=document.getElementById("adminDebug");
+  if(dbg){
+    const uid=auth.currentUser?auth.currentUser.uid:"";
+    dbg.textContent="Your user ID: "+uid+" — "+(isAdmin()?"admin controls are ON.":"admin controls are OFF (this ID doesn't match ADMIN_UID in the page code).");
+  }
   const list=document.getElementById("peopleList");
   list.innerHTML="";
   Object.keys(people).forEach(key=>{
@@ -727,7 +733,9 @@ function renderPeoplePanel(){
           }
         }else{
           if(confirm("Remove "+name+" from the roster?")){
-            db.ref("people/"+key).remove();
+            db.ref("people/"+key).remove().catch(e=>{
+              alert("Couldn't remove "+name+": "+e.message+"\n\nThis usually means the admin UID in your database rules doesn't match your account's user ID.");
+            });
           }
         }
       };
